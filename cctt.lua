@@ -167,6 +167,17 @@ local function token_stream(source)
         end
     end
 
+    -- items_string must be a space delimited string. They will be escaped properly
+    local function try_advance_for_one_of(items_string)
+        local patterns_string = items_string:gsub("([][()*.%%+-])", "%%%1")
+        for pattern in patterns_string:gmatch("[^ \t\n]+") do
+            if try_advance_for("^" .. pattern) then
+                return true
+            end
+        end
+        return false
+    end
+
     local function make_span()
         return source_span(source, loc_first, loc_last)
     end
@@ -261,8 +272,14 @@ local function token_stream(source)
             return make_token("non-literal identifier")
         end
 
-        if try_advance_for("^[][<>(){}=+,./;:~!%^&*-]") then
-            return make_token("non-literal symbol")
+        do -- symbol
+            if try_advance_for_one_of("-> :: ++ -- && || == != <= >= += -= *= /= &= |= ^=") then
+                return make_token("non-literal symbol")
+            end
+
+            if try_advance_for("^[][<>(){}=+,./;:~!%^&*-]") then
+                return make_token("non-literal symbol")
+            end
         end
 
         -- fallback
@@ -278,14 +295,15 @@ end
 
 local src = "\z
 //hello\n\z
-  // wo/*rl*/d\n\z
- /* h\n\z
+    // wo/*rl*/d\n\z
+    /* h\n\z
 el*/lo */\n\z
 #define HELLO(X) X \\\n\z
-  + X \\\r\n\z
-  - X \n\z
+    + X \\\r\n\z
+    - X \n\z
 1.5e3 .1 +3. a[3] = 10 \z
 auto x = L\"hello\";\n\z
+[[cctt::test]] std::cerr << \"hello \" << x->y << (x++ > 5);\n\z
 u8R\"asd( hello)a )as\"word)asd\"\"hi\"\z
 "
 if #arg == 1 then
