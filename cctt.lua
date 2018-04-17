@@ -58,7 +58,7 @@ local function source_location(line, column, byte)
     M.__index = M
 
     function M.__tostring()
-        return ("%d:%d(%d)"):format(line, column, byte)
+        return ("%.4d:%.4d(0x%.4x)"):format(line, column, byte-1)
     end
 
     function M.line() return line end
@@ -73,9 +73,9 @@ local function source_span(source, first_loc, last_loc)
     M.__index = M
 
     function M.__tostring()
-        local content = M.content():gsub("\n", "\\n")
         local range = ("[%s -> %s]"):format(first_loc, last_loc)
-        return ("%s %q"):format(range, content)
+        local content = M.pretty_content()
+        return ("%s %s"):format(range, content)
     end
 
     function M.first() return first_loc end
@@ -83,6 +83,15 @@ local function source_span(source, first_loc, last_loc)
 
     function M.content()
         return source:sub(first_loc.byte(), last_loc.byte()-1)
+    end
+
+    function M.pretty_content()
+        local content_quoted = ("%q"):format(M.content())
+            :gsub("\\\"", "\"")
+            :gsub("\n", "n")
+            :gsub(" ", "␣")
+        local content = content_quoted:sub(2, content_quoted:len() - 1)
+        return content
     end
 
     return setmetatable({}, M)
@@ -100,6 +109,22 @@ local function token(span, tags_string)
 
     function M.has_tag(tag) return tags.has(tag) end
     function M.span() return span end
+
+    function M.pretty_print()
+        local str_tags = tostring(tags)
+        local str_span = tostring(span)
+
+        local tags_max_width = 30
+        local tags_width = str_tags:len()
+
+        local spaces
+        if tags_width <= tags_max_width then
+            spaces = (" "):rep(tags_max_width - tags_width)
+        else
+            spaces = "\n" .. (" "):rep(tags_max_width)
+        end
+        print(("%s%s %s"):format(str_tags, spaces, str_span))
+    end
 
     return setmetatable({}, M)
 end
@@ -312,7 +337,7 @@ if #arg == 1 then
 end
 for tk in token_stream(src) do
     if not tk.has_tag("error") then
-        print(tk)
+        tk.pretty_print()
     end
 end
 
