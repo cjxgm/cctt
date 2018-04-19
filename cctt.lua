@@ -8,6 +8,12 @@ end
 local function string_set(initialization_string)
     local items = {}
 
+    local function assert_item_valid(item)
+        if item:match("[ \t\r\n]") ~= nil then
+            error(("Items of string sets cannot contain whitespaces, but got: %q"):format(item))
+        end
+    end
+
     local M = {}
     M.__index = M
 
@@ -16,10 +22,12 @@ local function string_set(initialization_string)
     end
 
     function M.has(item)
+        assert_item_valid(item)
         return items[item] == true
     end
 
     function M.add(item)
+        assert_item_valid(item)
         if M.has(item) then
             return false
         else
@@ -29,6 +37,7 @@ local function string_set(initialization_string)
     end
 
     function M.remove(item)
+        assert_item_valid(item)
         if M.has(item) then
             items[item] = nil
             return true
