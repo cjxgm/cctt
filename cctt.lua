@@ -1,8 +1,104 @@
 
-local stack do
-end
+local function array(items)
+    if items == nil then items = {} end
 
-local list do
+    local M = {}
+    M.__index = M
+
+    local function assert_has_any_item()
+        if M.empty() then
+            error("Array cannot be empty.")
+        end
+    end
+
+    local function assert_index_in_range(idx)
+        if idx < 1 or idx > M.count() then
+            error("Array index out of bound.")
+        end
+    end
+
+    function M.__tostring()
+        return ("(%s)"):format(M.content())
+    end
+
+    function M.set(idx, value)
+        assert_index_in_range(idx)
+        items[idx] = value
+    end
+
+    function M.at(idx)
+        assert_index_in_range(idx)
+        return items[idx]
+    end
+
+    function M.empty()
+        return #items == 0
+    end
+
+    function M.count()
+        return #items
+    end
+
+    function M.back()
+        assert_has_any_item()
+        return items[#items]
+    end
+
+    function M.split_from(idx)
+        if idx > #items then return array() end
+
+        assert_index_in_range(idx)
+        local result = array(table.move(items, idx, #items, 1, {}))
+
+        for _=idx,#items do
+            table.remove(items)
+        end
+
+        return result
+    end
+
+    function M.split_delimited_from(idx)
+        assert_index_in_range(idx)
+        assert_index_in_range(idx+1)
+
+        local closing_delimiter = table.remove(items)
+        local split = M.split_from(idx+1)
+        local open_delimiter = table.remove(items)
+
+        return split, open_delimiter, closing_delimiter
+    end
+
+    function M.push(item)
+        table.insert(items, item)
+    end
+
+    function M.pop()
+        assert_has_any_item()
+        table.remove(items)
+    end
+
+    function M.content()
+        return M.join(" ")
+    end
+
+    function M.join(separator)
+        return table.concat(items, separator)
+    end
+
+    function M.each()
+        local count = M.count()
+        local old_index = 0
+        return function()
+            if old_index >= count then
+                return nil
+            else
+                old_index = old_index + 1
+                return items[old_index]
+            end
+        end
+    end
+
+    return setmetatable({}, M)
 end
 
 local function string_set(initialization_string)
@@ -93,6 +189,7 @@ local function source_span(source, first_loc, last_loc)
 
     function M.first() return first_loc end
     function M.last() return last_loc end
+    function M.source() return source end
 
     function M.content()
         return source:sub(first_loc.byte(), last_loc.byte()-1)
@@ -110,37 +207,102 @@ local function source_span(source, first_loc, last_loc)
     return setmetatable({}, M)
 end
 
-local function token(span, tags_string)
-    local tags = string_set(tags_string)
+local token do
+    local open_delimiter_symbols = string_set("< ( [ {")
+    local closing_delimiter_symbols = string_set("> ) ] }")
+    local extra_disambiguating_symbols = string_set(";")
+    local delimiter_pairs = {
+        ["<"] = ">",
+        [">"] = "<",
+        ["("] = ")",
+        [")"] = "(",
+        ["["] = "]",
+        ["]"] = "[",
+        ["{"] = "}",
+        ["}"] = "{",
+        ["@["] = "@]",
+        ["@]"] = "@[",
+    }
 
-    local M = {}
-    M.__index = M
+    token = function(span, tags_string)
+        local tags = string_set(tags_string)
 
-    function M.__tostring()
-        return ("%s: %s"):format(tags, span)
-    end
+        local M = {}
+        M.__index = M
 
-    function M.has_tag(tag) return tags.has(tag) end
-    function M.span() return span end
-    function M.tags() return tags.content() end
-
-    function M.pretty_print()
-        local str_tags = tostring(tags)
-        local str_span = tostring(span)
-
-        local tags_max_width = 30
-        local tags_width = str_tags:len()
-
-        local spaces
-        if tags_width <= tags_max_width then
-            spaces = (" "):rep(tags_max_width - tags_width)
-        else
-            spaces = "\n" .. (" "):rep(tags_max_width)
+        function M.__tostring()
+            return ("%s: %s"):format(tags, span)
         end
-        print(("%s%s %s"):format(str_tags, spaces, str_span))
-    end
 
-    return setmetatable({}, M)
+        function M.has_tag(tag) return tags.has(tag) end
+        function M.span() return span end
+        function M.tags() return tags.content() end
+
+        function M.pretty_print()
+            local str_tags = tostring(tags)
+            local str_span = tostring(span)
+
+            local tags_max_width = 32
+            local tags_width = str_tags:len()
+
+            local spaces
+            if tags_width <= tags_max_width then
+                spaces = (" "):rep(tags_max_width - tags_width)
+            else
+                spaces = "\n" .. (" "):rep(tags_max_width)
+            end
+            print(("%s%s %s"):format(str_tags, spaces, str_span))
+        end
+
+        function M.is_open_delimiter()
+            local content = span.content()
+            if tags.has("symbol") and open_delimiter_symbols.has(content) then
+                return true
+            end
+
+            if tags.has("begin-mark") then
+                return true
+            end
+
+            return false
+        end
+
+        function M.is_closing_delimiter()
+            local content = span.content()
+            if tags.has("symbol") and closing_delimiter_symbols.has(content) then
+                return true
+            end
+
+            if tags.has("end-mark") then
+                return true
+            end
+
+            return false
+        end
+
+        function M.is_disambiguator()
+            if M.is_closing_delimiter() then
+                return true
+            end
+
+            local content = span.content()
+            if tags.has("symbol") and extra_disambiguating_symbols.has(content) then
+                return true
+            end
+
+            return false
+        end
+
+        function M.opposite_delimiter()
+            if M.is_open_delimiter() or M.is_closing_delimiter() then
+                return delimiter_pairs[span.content()]
+            else
+                error(("Not a delimiter: %s"):format(M.__tostring()))
+            end
+        end
+
+        return setmetatable({}, M)
+    end
 end
 
 local function token_stream(source)
@@ -181,24 +343,25 @@ local function token_stream(source)
         if closing_delim_pattern == nil then closing_delim_pattern = "\n" end
 
         local non_escaping_pattern = "^[^" .. closing_delim_pattern .. escaping_pattern .. "]*"
-        escaping_pattern = "^" .. escaping_pattern
+        escaping_pattern = "^" .. escaping_pattern .. ".?"
         open_delim_pattern = "^" .. open_delim_pattern
         closing_delim_pattern = "^" .. closing_delim_pattern
 
         if try_advance_for(open_delim_pattern) then
             local quote_first = loc_first
+
             while true do
                 loc_first = loc_last
                 try_advance_for(non_escaping_pattern)
 
                 loc_first = loc_last
-                local done = not try_advance_for(escaping_pattern)
-
-                loc_first = loc_last
-                try_advance_for(closing_delim_pattern)
-
-                if done then break end
+                if not try_advance_for(escaping_pattern) then
+                    loc_first = loc_last
+                    try_advance_for(closing_delim_pattern)
+                    break
+                end
             end
+
             loc_first = quote_first
             return true
         else
@@ -316,24 +479,158 @@ local function token_stream(source)
                 return make_token("non-literal symbol")
             end
 
-            if try_advance_for("^[][<>(){}=+,./;:~!%^&*-]") then
+            if try_advance_for("^[][<>(){}=+,./|;:~!?%%^&*-]") then
                 return make_token("non-literal symbol")
             end
         end
 
         -- fallback
         if try_advance_for("^.") then
-            local tk = make_token("error unrecognized")
-            print(("skipping %s"):format(tk))
-            return tk
+            return make_token("error unrecognized")
         else
             return nil      -- end of string
         end
     end
 end
 
+local function oneshot_iterator(x)
+    return function()
+        local y = x
+        x = nil
+        return y
+    end
+end
+
+local function concat_iterator(...)
+    local iters = { ... }
+    local iter_index = 1
+    local iter_count = select('#', ...)
+    return function()
+        while iter_index <= iter_count do
+            local x = iters[iter_index]()
+            if x == nil then
+                iter_index = iter_index + 1
+            else
+                return x
+            end
+        end
+        return nil
+    end
+end
+
+-- token_node(tk): leaf node
+-- token_node(tk, child_nodes, open_delimiter, closing_delimiter): internal node
+local function token_node(node_token, child_nodes, open_delimiter, closing_delimiter)
+    local M = {}
+    M.__index = M
+
+    function M.__tostring()
+        local content = M.pretty_content()
+        return content
+    end
+
+    function M.token() return node_token end
+    function M.open_delimiter() return open_delimiter end
+    function M.closing_delimiter() return closing_delimiter end
+    function M.is_leaf() return child_nodes == nil end
+
+    function M.pretty_content(start_index)
+        if start_index == nil then start_index = 0 end
+
+        if M.is_leaf() then
+            local content = node_token.span().pretty_content()
+            return content, start_index
+        else
+            local tokens = array { ("%s%d%s:"):format(open_delimiter.span().pretty_content(), start_index, closing_delimiter.span().pretty_content()) }
+            local lines = array { "" }
+
+            for child in child_nodes.each() do
+                if child.is_leaf() then
+                    local content = child.pretty_content(start_index)
+                    tokens.push(content)
+                else
+                    start_index = start_index + 1
+                    local open = child.open_delimiter().span().pretty_content()
+                    local closing = child.closing_delimiter().span().pretty_content()
+                    tokens.push(("%s%d%s"):format(open, start_index, closing))
+
+                    local content
+                    content, start_index = child.pretty_content(start_index)
+                    lines.push(content)
+                end
+            end
+
+            lines.set(1, tokens.join(" "))
+            local content = lines.join("\n")
+            return content, start_index
+        end
+    end
+
+    return setmetatable({}, M)
+end
+
+local function token_tree(source)
+    local pending_nodes = array()
+    local open_delimiters = array()
+
+    local marks = "@[@]"
+    local begin_mark_span = source_span(marks, source_location(1, 1, 1), source_location(1, 3, 3))
+    local end_mark_span = source_span(marks, source_location(1, 3, 3), source_location(1, 5, 5))
+    local begin_mark = token(begin_mark_span, "non-literal symbol begin-mark")
+    local end_mark = token(end_mark_span, "non-literal symbol end-mark")
+
+    for tk in concat_iterator(oneshot_iterator(begin_mark), token_stream(source), oneshot_iterator(end_mark)) do
+        if tk.has_tag("error") then
+            tk.pretty_print()
+            error("Unrecognized symbol.")
+        end
+
+        if not tk.has_tag("ignore") then
+            pending_nodes.push(token_node(tk))
+
+            ;(function()
+                if tk.is_open_delimiter() then
+                    open_delimiters.push(pending_nodes.count())
+                    return
+                end
+
+                if tk.is_closing_delimiter() then
+                    local open_delimiter_at = open_delimiters.back()
+                    open_delimiters.pop()
+
+                    local child_nodes, open_delimiter, closing_delimiter = pending_nodes.split_delimited_from(open_delimiter_at)
+                    open_delimiter = open_delimiter.token()
+                    closing_delimiter = closing_delimiter.token()
+
+                    if open_delimiter.span().content() ~= closing_delimiter.opposite_delimiter() then
+                        open_delimiter.pretty_print()
+                        closing_delimiter.pretty_print()
+                        error("Delimiters are not paired.")
+                    end
+
+                    local span = source_span(open_delimiter.span().source(), open_delimiter.span().first(), closing_delimiter.span().last())
+                    local node_token = token(span, "token-tree")
+                    local node = token_node(node_token, child_nodes, open_delimiter, closing_delimiter)
+
+                    pending_nodes.push(node)
+                    return
+                end
+            end)()
+        end
+    end
+
+    if pending_nodes.count() ~= 1 then
+        print("Remaining nodes:")
+        for node in pending_nodes.each() do
+            node.token().pretty_print()
+        end
+        error("Unmatching parenthesis.")
+    end
+    print(pending_nodes.back())
+end
+
 local src = "\z
-//hello\n\z
+([]//hello\n\z
     // wo/*rl*/d\n\z
     /* h\n\z
 el*/lo */\n\z
@@ -342,16 +639,12 @@ el*/lo */\n\z
     - X \n\z
 1.5e3 .1 +3. a[3] = 10 \z
 auto x = L\"hello\";\n\z
-[[cctt::test]] std::cerr << \"hello \" << x->y << (x++ > 5);\n\z
-u8R\"asd( hello)a )as\"word)asd\"\"hi\"\z
+[[cctt::test]] std::cerr <> \"hello \" <> x->y <> (x++ <> 5);\n\z
+u8R\"asd( hello)a )as\"word)asd\"\"hi\"){}\z
 "
 if #arg == 1 then
     local path = arg[1]
     src = assert(io.open(path, "rb")):read("*a")
 end
-for tk in token_stream(src) do
-    if not tk.has_tag("error") then
-        tk.pretty_print()
-    end
-end
+local tt = token_tree(src)
 
