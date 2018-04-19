@@ -12,12 +12,7 @@ local function string_set(initialization_string)
     M.__index = M
 
     function M.__tostring()
-        local item_list = {}
-        for item in pairs(items) do
-            table.insert(item_list, item)
-        end
-        table.sort(item_list)
-        return ("[%s]"):format(table.concat(item_list, " "))
+        return ("[%s]"):format(M.content())
     end
 
     function M.has(item)
@@ -40,6 +35,15 @@ local function string_set(initialization_string)
         else
             return false
         end
+    end
+
+    function M.content()
+        local item_list = {}
+        for item in pairs(items) do
+            table.insert(item_list, item)
+        end
+        table.sort(item_list)
+        return table.concat(item_list, " ")
     end
 
     for item in initialization_string:gmatch("[^ \t\r\n]+") do
@@ -109,6 +113,7 @@ local function token(span, tags_string)
 
     function M.has_tag(tag) return tags.has(tag) end
     function M.span() return span end
+    function M.tags() return tags.content() end
 
     function M.pretty_print()
         local str_tags = tostring(tags)
