@@ -597,6 +597,7 @@ local function token_tree(source)
 
     for tk in concat_iterator(oneshot_iterator(begin_mark), token_stream(source), oneshot_iterator(end_mark)) do
         if tk.has_tag("error") then
+            print("Error context:")
             tk.pretty_print()
             error("Unrecognized symbol.")
         end
@@ -625,6 +626,7 @@ local function token_tree(source)
                         if closing_delimiter.is_ambiguous_closing_delimiter() then
                             return
                         end
+                        print("Error context:")
                         open_delimiter.pretty_print()
                         closing_delimiter.pretty_print()
                         error("Delimiters are not paired.")
