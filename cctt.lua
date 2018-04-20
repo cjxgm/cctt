@@ -461,11 +461,11 @@ local function token_stream(source)
         end
 
         do -- number
-            if try_advance_for("^[+-]?[0-9]+%.[0-9]*") then
+            if try_advance_for("^[0-9]+%.[0-9]*") then
                 return make_token("literal number float")
             end
 
-            if try_advance_for("^[+-]?%.[0-9]+") then
+            if try_advance_for("^%.[0-9]+") then
                 return make_token("literal number float")
             end
 
@@ -481,7 +481,7 @@ local function token_stream(source)
                 return make_token("literal number integer oct")
             end
 
-            if try_advance_for("^[+-]?[0-9]+") then
+            if try_advance_for("^[0-9]+") then
                 return make_token("literal number integer dec")
             end
         end
