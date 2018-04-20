@@ -491,7 +491,7 @@ local function token_stream(source)
         end
 
         do -- symbol
-            if try_advance_for_one_of("-> :: ++ -- && || == != <= >= += -= *= /= &= |= ^=") then
+            if try_advance_for_one_of("-> :: ++ -- && || == != <= >= += -= *= /= &= |= ^= ...") then
                 return make_token("non-literal symbol")
             end
 
