@@ -208,9 +208,11 @@ local function source_span(source, first_loc, last_loc)
 end
 
 local token do
-    local open_delimiter_symbols = string_set("< ( [ {")
-    local closing_delimiter_symbols = string_set("> ) ] }")
-    local extra_disambiguating_symbols = string_set(";")
+    local open_delimiter_symbols = string_set("( [ {")
+    local closing_delimiter_symbols = string_set(") ] }")
+    local ambiguous_open_delimiter_symbols = string_set("<")
+    local ambiguous_closing_delimiter_symbols = string_set(">")
+    local disambiguating_symbols = string_set(") ] } ;")
     local delimiter_pairs = {
         ["<"] = ">",
         [">"] = "<",
@@ -256,8 +258,10 @@ local token do
 
         function M.is_open_delimiter()
             local content = span.content()
-            if tags.has("symbol") and open_delimiter_symbols.has(content) then
-                return true
+            if tags.has("symbol") then
+                if open_delimiter_symbols.has(content) then return true end
+                if ambiguous_open_delimiter_symbols.has(content) then return true end
+                return false
             end
 
             if tags.has("begin-mark") then
@@ -269,8 +273,10 @@ local token do
 
         function M.is_closing_delimiter()
             local content = span.content()
-            if tags.has("symbol") and closing_delimiter_symbols.has(content) then
-                return true
+            if tags.has("symbol") then
+                if closing_delimiter_symbols.has(content) then return true end
+                if ambiguous_closing_delimiter_symbols.has(content) then return true end
+                return false
             end
 
             if tags.has("end-mark") then
@@ -281,16 +287,26 @@ local token do
         end
 
         function M.is_disambiguator()
-            if M.is_closing_delimiter() then
+            local content = span.content()
+            if tags.has("symbol") and disambiguating_symbols.has(content) then
                 return true
             end
 
-            local content = span.content()
-            if tags.has("symbol") and extra_disambiguating_symbols.has(content) then
+            if tags.has("end-mark") then
                 return true
             end
 
             return false
+        end
+
+        function M.is_ambiguous_open_delimiter()
+            local content = span.content()
+            return tags.has("symbol") and ambiguous_open_delimiter_symbols.has(content)
+        end
+
+        function M.is_ambiguous_closing_delimiter()
+            local content = span.content()
+            return tags.has("symbol") and ambiguous_closing_delimiter_symbols.has(content)
         end
 
         function M.opposite_delimiter()
@@ -576,8 +592,8 @@ local function token_tree(source)
     local marks = "@[@]"
     local begin_mark_span = source_span(marks, source_location(1, 1, 1), source_location(1, 3, 3))
     local end_mark_span = source_span(marks, source_location(1, 3, 3), source_location(1, 5, 5))
-    local begin_mark = token(begin_mark_span, "non-literal symbol begin-mark")
-    local end_mark = token(end_mark_span, "non-literal symbol end-mark")
+    local begin_mark = token(begin_mark_span, "begin-mark")
+    local end_mark = token(end_mark_span, "end-mark")
 
     for tk in concat_iterator(oneshot_iterator(begin_mark), token_stream(source), oneshot_iterator(end_mark)) do
         if tk.has_tag("error") then
@@ -594,25 +610,33 @@ local function token_tree(source)
                     return
                 end
 
+                if tk.is_disambiguator() then
+                    while pending_nodes.at(open_delimiters.back()).token().is_ambiguous_open_delimiter() do
+                        open_delimiters.pop()
+                    end
+                    -- no "return" intentionally
+                end
+
                 if tk.is_closing_delimiter() then
                     local open_delimiter_at = open_delimiters.back()
-                    open_delimiters.pop()
-
-                    local child_nodes, open_delimiter, closing_delimiter = pending_nodes.split_delimited_from(open_delimiter_at)
-                    open_delimiter = open_delimiter.token()
-                    closing_delimiter = closing_delimiter.token()
-
+                    local open_delimiter = pending_nodes.at(open_delimiter_at).token()
+                    local closing_delimiter = tk
                     if open_delimiter.span().content() ~= closing_delimiter.opposite_delimiter() then
+                        if closing_delimiter.is_ambiguous_closing_delimiter() then
+                            return
+                        end
                         open_delimiter.pretty_print()
                         closing_delimiter.pretty_print()
                         error("Delimiters are not paired.")
                     end
 
+                    local child_nodes = pending_nodes.split_delimited_from(open_delimiter_at)
                     local span = source_span(open_delimiter.span().source(), open_delimiter.span().first(), closing_delimiter.span().last())
                     local node_token = token(span, "token-tree")
                     local node = token_node(node_token, child_nodes, open_delimiter, closing_delimiter)
 
                     pending_nodes.push(node)
+                    open_delimiters.pop()
                     return
                 end
             end)()
@@ -639,7 +663,7 @@ el*/lo */\n\z
     - X \n\z
 1.5e3 .1 +3. a[3] = 10 \z
 auto x = L\"hello\";\n\z
-[[cctt::test]] std::cerr <> \"hello \" <> x->y <> (x++ <> 5);\n\z
+[[cctt::test]] std::cerr << \"hello \" << T<int> x->y << (x++ > 5);\n\z
 u8R\"asd( hello)a )as\"word)asd\"\"hi\"){}\z
 "
 if #arg == 1 then
