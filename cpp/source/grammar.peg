@@ -1,15 +1,69 @@
 R"grammar(
-    root            = identifier* __
-    identifier      = __ [a-zA-Z_$] [a-zA-Z_$0-9]*
+    root            = token_stream NOT_OPEN?
 
+    token_stream    = (~__ token_node)* ~__
+    token_stream_na = (~__ token_node_na)* ~__
+    token_node      = token_tree | token
+    token_node_na   = token_tree | ![>;] token
+    token_tree      = tt_angular | (tt_paren | tt_attrib | tt_bracket | tt_brace | UNPAIRED)
+    tt_angular      = '<' token_stream_na '>'
+    tt_paren        = '(' token_stream ')'
+    tt_attrib       = '[[' token_stream ']]'
+    tt_bracket      = !'[[' '[' token_stream ']'
+    tt_brace        = '{' token_stream '}'
+
+    token           = literal | symbol | identifier | NOT_CLOSED | UNKNOWN_CHAR
+    identifier      = [a-zA-Z_$] [a-zA-Z_$0-9]*
+    symbol          = '->' | '::' | '++' | '--' | '&&' | '||'
+                    | '==' | '!=' | '<=' | '>=' | '<<' | '>>'
+                    | '+=' | '-=' | '*=' | '/=' | '&=' | '|=' | '^='
+                    | '...'
+                    | [-+*/=,.|;:~!?%^&<>]
+
+    literal         = lit_char | lit_string | lit_string_raw | lit_number
+    lit_char        = lit_str_prefix? "'" ('\\' . | !"'" .)* "'"
+    lit_string      = lit_str_prefix? '"' ('\\' . | !'"' .)* '"'
+    lit_string_raw  = lit_str_prefix? lit_str_raw_beg (!lit_str_raw_end .)* lit_str_raw_end
+    lit_str_raw_beg = 'R"' SAVE_RAW_DELIM '('
+    lit_str_raw_end = ')'  PAIR_RAW_DELIM '"'
+    lit_str_prefix  = 'L' | 'u8' | 'u' | 'U'
+    lit_number      = lit_num_hex | lit_num_bin | lit_num_oct | lit_num_dec
+    lit_num_hex     = '0' [xX] [0-9a-fA-F]+
+    lit_num_bin     = '0' [bB] [0-1]+
+    lit_num_oct     = '0' [0-7]+
+    lit_num_dec     = lit_num_dec_d ('e' [-+]? [0-9]+)?
+    lit_num_dec_d   = [0-9]+ ('.' [0-9]*)?
+                    | '.' [0-9]+
+
+    ### special actions for raw string delimiter handling
+    SAVE_RAW_DELIM  = raw_delimiter
+    PAIR_RAW_DELIM  = raw_delimiter
+    # The C++ standard allows '"' in the delimiter, we disallow it.
+    raw_delimiter   = (!spacing ![()\\"] .)*
+
+    ### error handling
+    UNKNOWN_CHAR    = !(')' | ']' | '}') .
+    UNPAIRED        = OPEN_PAIRS token_stream CLOSING_PAIRS | NOT_CLOSED
+    NOT_OPEN        = CLOSING_PAIRS
+    NOT_CLOSED      = OPEN_PAIRS token_stream eof
+                    | OPEN_CHAR_LIT ('\\' . | !"'" .)* eof
+                    | OPEN_STR_LIT  ('\\' . | !'"' .)* eof
+                    | OPEN_RSTR_LIT (!lit_str_raw_end .)* eof
+    OPEN_PAIRS      = '(' | '[[' | '[' | '{'
+    CLOSING_PAIRS   = ')' | ']]' | ']' | '}'
+    OPEN_CHAR_LIT   = lit_str_prefix? "'"
+    OPEN_STR_LIT    = lit_str_prefix? '"'
+    OPEN_RSTR_LIT   = lit_str_prefix? lit_str_raw_beg
+
+    ### whitespace
     __              = (spacing | comment | directive)*
-    spacing         = [ \t\r\n]+
+    spacing         = [\x20\t\r\n\x0b\x0c]+
     comment         = line_comment | block_comment
-    line_comment    = '//' (!eofl .)*
-    block_comment   = '/*' (!'*/' .)* '*/'
-    directive       = '#' (!eofl ('\\' eofl | .))*
+    line_comment    = '//' (!eol .)*
+    block_comment   = '/*' (!'*/' .)* '*/'?
+    directive       = '#' ('\\' eol | !eol .)*
 
-    eofl            = eof | eol
+    ### special conditions
     eol             = '\r\n' | '\n'
     eof             = !.
 )grammar"
