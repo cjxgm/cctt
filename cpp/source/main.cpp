@@ -1,34 +1,51 @@
-#include "cctt.hpp"
+#include "util/file.hpp"
+#include "token-tree/token-tree.hpp"
+#include "token-tree/error.hpp"
 #include <string>
-#include <fstream>
-#include <sstream>
+#include <iostream>
 #include <stdexcept>
 
-namespace
-{
-    auto slurp(char const* path) -> std::string
-    {
-        if (std::ifstream ifs{path, std::ios::binary}) {
-            std::stringstream ss;
-            ss << ifs.rdbuf();
-            return ss.str();
-        }
-        else {
-            throw std::runtime_error{"Cannot load file: " + std::string{path}};
-        }
-    }
-}
+#define STYLE_NORMAL        "\e[0m"
+#define STYLE_PATH          "\e[0;33m"
+#define STYLE_ERROR         "\e[1;31m"
 
 int main(int argc, char* argv[])
 {
     std::string path{"@builtin"};
-    std::string source{"#a\\\r\n!\n/*!*/ //!"};
+    std::string source{
+        #include "test-source.inl"
+    };
 
-    if (argc == 2) {
-        path = argv[1];
-        source = slurp(path.data());
+    auto scan = [&] {
+        try {
+            cctt::Token_Tree tt{source};
+            std::cout << path << ": token count = " << tt.end() - tt.begin() << "\n";
+            std::cout.flush();
+        }
+        catch (cctt::Parsing_Error const& e) {
+            std::clog
+                << STYLE_ERROR "Error" STYLE_NORMAL " parsing "
+                << STYLE_PATH << path << STYLE_NORMAL
+                << " at " << e.what()
+                << "\n";
+            std::clog.flush();
+        }
+    };
+
+    try {
+        if (argc < 2) {
+            scan();
+        } else {
+            for (int i=1; i < argc; i++) {
+                path = argv[i];
+                source = cctt::util::slurp(path.data());
+                scan();
+            }
+        }
     }
-
-    cctt::parse(source.data(), int(source.size()), path.data());
+    catch (std::runtime_error const& e) {
+        std::clog << STYLE_ERROR << e.what() << STYLE_NORMAL << "\n";
+        std::clog.flush();
+    }
 }
 
