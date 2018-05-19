@@ -16,6 +16,12 @@ target_link_libraries(
     nonstd
     fmt
 )
+target_compile_options(
+    cctt PRIVATE
+    -Wall
+    -Wextra
+    -Wno-unused-parameter
+)
 
 find_program(CCACHE_FOUND ccache)
 if (CCACHE_FOUND)
