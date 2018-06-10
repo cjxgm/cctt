@@ -655,6 +655,7 @@ local function token_tree(source)
     print(pending_nodes.back())
 end
 
+local path = "@builtin"
 local src = "\z
 ([]//hello\n\z
     // wo/*rl*/d\n\z
@@ -668,9 +669,21 @@ auto x = L\"hello\";\n\z
 [[cctt::test]] std::cerr << \"hello \" << T<int> x->y << (x++ > 5);\n\z
 u8R\"asd( hello)a )as\"word)asd\"\"hi\"){}\z
 "
-if #arg == 1 then
-    local path = arg[1]
-    src = assert(io.open(path, "rb")):read("*a")
+local function parse()
+    local count = 0
+    for _ in token_stream(src) do
+        count = count + 1
+    end
+    token_tree(src)
 end
-local tt = token_tree(src)
+
+if #arg == 0 then
+    parse()
+else
+    for _,filename in ipairs(arg) do
+        path = filename
+        src = assert(io.open(path, "rb")):read("*a")
+        parse()
+    end
+end
 
