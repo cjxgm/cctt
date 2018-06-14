@@ -24,6 +24,19 @@ namespace cctt
             char const* last,
             char const* missing_pair
         ) -> void;
+
+        [[noreturn]] auto throw_parsing_error_of_missing_pair(
+            Source_Location loc,
+            Token const* pair,
+            char const* missing_pair
+        ) -> void;
+
+        [[noreturn]] auto throw_parsing_error_of_unpaired_pair(
+            Source_Location open_loc,
+            Token const* open,
+            Source_Location closing_loc,
+            Token const* closing
+        ) -> void;
     }
 }
 

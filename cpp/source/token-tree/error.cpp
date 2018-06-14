@@ -41,6 +41,43 @@ namespace cctt
             );
             throw_scanning_error(loc, first, last, reason.data());
         }
+
+        [[noreturn]] auto throw_parsing_error_of_missing_pair(
+            Source_Location loc,
+            Token const* pair,
+            char const* missing_pair
+        ) -> void
+        {
+            throw_scanning_error_of_missing_pair(
+                loc,
+                pair->first,
+                pair->last,
+                missing_pair
+            );
+        }
+
+        [[noreturn]] auto throw_parsing_error_of_unpaired_pair(
+            Source_Location open_loc,
+            Token const* open,
+            Source_Location closing_loc,
+            Token const* closing
+        ) -> void
+        {
+            auto msg = fmt::format(
+                STYLE_LOCATION "{}:{}" STYLE_NORMAL " "
+                STYLE_SOURCE "{}" STYLE_NORMAL " and "
+                STYLE_LOCATION "{}:{}" STYLE_NORMAL " "
+                STYLE_SOURCE "{}" STYLE_NORMAL ": "
+                "unmatching pair."
+                , open_loc.line
+                , open_loc.column
+                , util::quote({open->first, open->last})
+                , closing_loc.line
+                , closing_loc.column
+                , util::quote({closing->first, closing->last})
+            );
+            throw Parsing_Error{msg};
+        }
     }
 }
 

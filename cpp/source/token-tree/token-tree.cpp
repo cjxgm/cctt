@@ -113,6 +113,8 @@ namespace cctt
             , sol_index{source}
         {
             scan();
+            build_token_pairs();
+            build_token_tree();
         }
 
         auto begin() const { return tokens.data(); }
@@ -122,6 +124,9 @@ namespace cctt
         char const* source;
         token_tree::Start_of_Line_Index sol_index;
         std::vector<Token> tokens;
+
+        auto begin() { return tokens.data(); }
+        auto   end() { return tokens.data() + tokens.size() - 1; }
 
         auto scan() -> void
         {
@@ -446,6 +451,180 @@ namespace cctt
             commit(Token_Tag::end);
         }
 
+        auto build_token_pairs() -> void
+        {
+            #define CASE_AMBIGUOUS_OPEN_SYMBOL \
+                case '<'
+            #define CASE_AMBIGUOUS_CLOSING_SYMBOL \
+                case '>'
+            #define CASE_OPEN_SYMBOL \
+                case '(': case '[': case '{'
+            #define CASE_CLOSING_SYMBOL \
+                case ')': case ']': case '}'
+            #define CASE_DISAMBIGUATING_SYMBOL \
+                case ';': \
+                CASE_CLOSING_SYMBOL
+
+            auto is_ambiguous_open_symbol = [] (char ch) {
+                switch (ch) {
+                    CASE_AMBIGUOUS_OPEN_SYMBOL: return true;
+                    default: return false;
+                }
+            };
+
+            auto paired_open_symbol_of = [] (char ch) {
+                switch (ch) {
+                    case '>': return '<';
+                    case ')': return '(';
+                    case ']': return '[';
+                    case '}': return '{';
+                    default: token_tree::unreachable();
+                }
+            };
+
+            auto paired_closing_symbol_of = [] (char ch) {
+                switch (ch) {
+                    case '<': return '>';
+                    case '(': return ')';
+                    case '[': return ']';
+                    case '{': return '}';
+                    default: token_tree::unreachable();
+                }
+            };
+
+            // Assume `tk` is a token of single-character symbol
+            auto symbol_of = [] (Token const* tk) {
+                return tk->first[0];
+            };
+
+            auto abort_unpaired = [&, this] (Token const* open, Token const* closing) {
+                if (open && closing) {
+                    auto open_loc = sol_index.source_location_of(open->first);
+                    auto closing_loc = sol_index.source_location_of(closing->first);
+                    token_tree_internal::throw_parsing_error_of_unpaired_pair(
+                        open_loc, open,
+                        closing_loc, closing
+                    );
+                }
+
+                if (open) {
+                    auto loc = sol_index.source_location_of(open->first);
+                    char missing_pair[] = { paired_closing_symbol_of(symbol_of(open)), '\0' };
+                    token_tree_internal::throw_parsing_error_of_missing_pair(loc, open, missing_pair);
+                }
+
+                if (closing) {
+                    auto loc = sol_index.source_location_of(closing->first);
+                    char missing_pair[] = { paired_open_symbol_of(symbol_of(closing)), '\0' };
+                    token_tree_internal::throw_parsing_error_of_missing_pair(loc, closing, missing_pair);
+                }
+
+                token_tree::unreachable();
+            };
+
+            std::vector<Token*> blocks;
+            blocks.reserve(tokens.size());
+
+            for (auto& token: *this) {
+                if (token.tags.has_none_of(Token_Tag::symbol)) continue;
+                if (token.last - token.first != 1) continue;
+
+                auto tk = &token;
+                auto sym = symbol_of(tk);
+
+                switch (sym) {
+                    CASE_AMBIGUOUS_OPEN_SYMBOL:
+                    CASE_OPEN_SYMBOL:
+                        blocks.emplace_back(tk);
+                        break;
+
+                    default:
+                        break;
+                }
+
+                switch (sym) {
+                    CASE_DISAMBIGUATING_SYMBOL:
+                        while (!blocks.empty() && is_ambiguous_open_symbol(symbol_of(blocks.back())))
+                            blocks.pop_back();
+                        break;
+
+                    default:
+                        break;
+                }
+
+                switch (sym) {
+                    CASE_AMBIGUOUS_CLOSING_SYMBOL:
+                    CASE_CLOSING_SYMBOL:
+                        if (blocks.empty()) {
+                            switch (sym) {
+                                CASE_AMBIGUOUS_CLOSING_SYMBOL: break;
+                                default:
+                                    abort_unpaired(nullptr, tk);
+                                    token_tree::unreachable();
+                            }
+                        } else {
+                            auto open_token = blocks.back();
+                            auto open_symbol = symbol_of(open_token);
+
+                            if (open_symbol == paired_open_symbol_of(sym)) {
+                                blocks.pop_back();
+                                open_token->pair = tk;
+                                tk->pair = open_token;
+                            } else {
+                                switch (sym) {
+                                    CASE_AMBIGUOUS_CLOSING_SYMBOL: break;
+                                    default:
+                                        abort_unpaired(open_token, tk);
+                                        token_tree::unreachable();
+                                }
+                            }
+                        }
+                        break;
+
+                    default:
+                        break;
+                }
+            }
+
+            while (!blocks.empty() && is_ambiguous_open_symbol(symbol_of(blocks.back())))
+                blocks.pop_back();
+
+            if (!blocks.empty()) {
+                abort_unpaired(blocks.back(), nullptr);
+                token_tree::unreachable();
+            }
+        }
+
+        auto build_token_tree() -> void
+        {
+            std::vector<Token const*> parents;
+            parents.reserve(tokens.size());
+            parents.emplace_back(nullptr);
+
+            for (auto& token: *this) {
+                auto tk = &token;
+
+                if (tk->pair == nullptr) {
+                    tk->parent = parents.back();
+                    continue;
+                }
+
+                if (tk->pair > tk) {
+                    tk->parent = parents.back();
+                    parents.emplace_back(tk);
+                    continue;
+                }
+
+                if (tk->pair < tk) {
+                    parents.pop_back();
+                    tk->parent = parents.back();
+                    continue;
+                }
+
+                token_tree::unreachable();
+            }
+        }
+
         static auto estimate_token_count(char const* source) -> std::size_t
         {
             constexpr auto least_token_count = std::size_t(1024);
@@ -469,12 +648,14 @@ namespace cctt
 
     auto Token_Tree::begin() const -> Token const*
     {
-        return impl->begin();
+        auto const* const_impl = impl.get();
+        return const_impl->begin();
     }
 
     auto Token_Tree::end() const -> Token const*
     {
-        return impl->end();
+        auto const* const_impl = impl.get();
+        return const_impl->end();
     }
 }
 

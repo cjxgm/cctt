@@ -29,6 +29,9 @@ namespace cctt
         char const* last;
         Token_Tag_Set tags;
 
+        Token const* pair{};
+        Token const* parent{};
+
         Token(char const* first, char const* last, Token_Tag_Set tags)
             : first{first}, last{last}, tags{tags}
         {}
