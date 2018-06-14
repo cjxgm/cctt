@@ -5,9 +5,7 @@
 #include <iostream>
 #include <stdexcept>
 
-#define STYLE_NORMAL        "\e[0m"
-#define STYLE_PATH          "\e[0;33m"
-#define STYLE_ERROR         "\e[1;31m"
+#include "util/style.inl"
 
 int main(int argc, char* argv[])
 {

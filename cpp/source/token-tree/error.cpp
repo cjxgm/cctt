@@ -2,9 +2,7 @@
 #include "../util/string.hpp"
 #include <fmt/format.hpp>
 
-#define STYLE_NORMAL        "\e[0m"
-#define STYLE_LOCATION      "\e[1;36m"
-#define STYLE_SOURCE        "\e[1;35m"
+#include "../util/style.inl"
 
 namespace cctt
 {
