@@ -1,6 +1,7 @@
 #include "util/file.hpp"
 #include "token-tree/token-tree.hpp"
 #include "token-tree/error.hpp"
+#include "token-tree/pretty-print.hpp"
 #include <string>
 #include <iostream>
 #include <stdexcept>
@@ -17,7 +18,7 @@ int main(int argc, char* argv[])
     auto scan = [&] {
         try {
             cctt::Token_Tree tt{source};
-            std::cout << path << ": token count = " << tt.end() - tt.begin() << "\n";
+            cctt::pretty_print_token_tree(tt.begin(), tt.end());
             std::cout.flush();
         }
         catch (cctt::Parsing_Error const& e) {
