@@ -26,6 +26,20 @@ namespace cctt
         char const* missing_pair
     ) -> void;
 
+    [[noreturn]] auto throw_parsing_error(
+        Source_Location loc,
+        Token const* tk,
+        char const* reason
+    ) -> void;
+
+    [[noreturn]] auto throw_parsing_error2(
+        Source_Location loc0,
+        Token const* tk0,
+        Source_Location loc1,
+        Token const* tk1,
+        char const* reason
+    ) -> void;
+
     [[noreturn]] auto throw_parsing_error_of_missing_pair(
         Source_Location loc,
         Token const* pair,
