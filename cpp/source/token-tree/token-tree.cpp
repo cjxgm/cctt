@@ -237,12 +237,12 @@ namespace cctt
 
             auto abort = [&] (char const* reason) {
                 auto loc = sol_index.source_location_of(first);
-                token_tree_internal::throw_scanning_error(loc, first, last, reason);
+                throw_scanning_error(loc, first, last, reason);
             };
 
             auto abort_missing = [&] (char const* pair) {
                 auto loc = sol_index.source_location_of(first);
-                token_tree_internal::throw_scanning_error_of_missing_pair(loc, first, last, pair);
+                throw_scanning_error_of_missing_pair(loc, first, last, pair);
             };
 
             // Make sure `last` is on current line!
@@ -501,7 +501,7 @@ namespace cctt
                 if (open && closing) {
                     auto open_loc = sol_index.source_location_of(open->first);
                     auto closing_loc = sol_index.source_location_of(closing->first);
-                    token_tree_internal::throw_parsing_error_of_unpaired_pair(
+                    throw_parsing_error_of_unpaired_pair(
                         open_loc, open,
                         closing_loc, closing
                     );
@@ -510,13 +510,13 @@ namespace cctt
                 if (open) {
                     auto loc = sol_index.source_location_of(open->first);
                     char missing_pair[] = { paired_closing_symbol_of(symbol_of(open)), '\0' };
-                    token_tree_internal::throw_parsing_error_of_missing_pair(loc, open, missing_pair);
+                    throw_parsing_error_of_missing_pair(loc, open, missing_pair);
                 }
 
                 if (closing) {
                     auto loc = sol_index.source_location_of(closing->first);
                     char missing_pair[] = { paired_open_symbol_of(symbol_of(closing)), '\0' };
-                    token_tree_internal::throw_parsing_error_of_missing_pair(loc, closing, missing_pair);
+                    throw_parsing_error_of_missing_pair(loc, closing, missing_pair);
                 }
 
                 token_tree::unreachable();
