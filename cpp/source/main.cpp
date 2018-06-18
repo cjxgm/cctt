@@ -2,6 +2,8 @@
 #include "token-tree/token-tree.hpp"
 #include "token-tree/error.hpp"
 #include "token-tree/pretty-print.hpp"
+#include "introspection/introspect.hpp"
+#include "introspection/dump.hpp"
 #include <string>
 #include <iostream>
 #include <stdexcept>
@@ -18,8 +20,12 @@ int main(int argc, char* argv[])
     auto scan = [&] {
         try {
             cctt::Token_Tree tt{source};
+
             cctt::pretty_print_token_tree(tt.begin(), tt.end());
             std::cout.flush();
+
+            cctt::Introspection_Dumper handler;
+            cctt::introspect(tt, handler);
         }
         catch (cctt::Parsing_Error const& e) {
             std::clog
