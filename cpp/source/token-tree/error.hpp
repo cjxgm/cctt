@@ -9,6 +9,8 @@ namespace cctt
         using runtime_error::runtime_error;
     };
 
+    // scanning error: Errors about characters.
+    // parsing  error: Errors about tokens.
     namespace token_tree_internal
     {
         [[noreturn]] auto throw_scanning_error(
