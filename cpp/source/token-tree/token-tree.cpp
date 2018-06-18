@@ -120,6 +120,8 @@ namespace cctt
         auto begin() const { return tokens.data(); }
         auto   end() const { return tokens.data() + tokens.size() - 1; }
 
+        auto source_location_of(char const* at) const { return sol_index.source_location_of(at); }
+
     private:
         char const* source;
         token_tree::Start_of_Line_Index sol_index;
@@ -656,6 +658,12 @@ namespace cctt
     {
         auto const* const_impl = impl.get();
         return const_impl->end();
+    }
+
+    auto Token_Tree::source_location_of(char const* at) const -> Source_Location
+    {
+        auto const* const_impl = impl.get();
+        return const_impl->source_location_of(at);
     }
 }
 

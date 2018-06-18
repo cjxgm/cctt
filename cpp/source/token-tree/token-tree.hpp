@@ -7,6 +7,12 @@
 
 namespace cctt
 {
+    struct Source_Location final
+    {
+        std::size_t line;
+        std::size_t column;
+    };
+
     struct Token_Tree final
     {
         // source must be zero-terminated.
@@ -25,15 +31,11 @@ namespace cctt
         auto begin() const -> Token const*;
         auto   end() const -> Token const*;
 
+        auto source_location_of(char const* at) const -> Source_Location;
+
     private:
         struct Impl;
         std::unique_ptr<Impl> impl;
-    };
-
-    struct Source_Location final
-    {
-        std::size_t line;
-        std::size_t column;
     };
 }
 
