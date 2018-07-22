@@ -85,5 +85,15 @@ namespace cctt
         std::cout << "  int constant " << full_name << "\n";
         std::cout.flush();
     }
+
+    auto Introspection_Dumper::variable_or_function(Token const* name) -> void
+    {
+        auto full_name = full_namespace;
+        full_name += "::";
+        full_name.append(name->first, name->last);
+
+        std::cout << "  var or fn " << full_name << "\n";
+        std::cout.flush();
+    }
 }
 

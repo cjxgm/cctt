@@ -33,6 +33,17 @@ namespace cctt
         // enum { @constant1, @constant2 = 10, @constant3 };
         // enum: int { @constant1, @constant2 = 10, @constant3 };
         virtual auto integral_constant(Token const* name) -> void = 0;
+
+        // int name;
+        // int name = 10;
+        // int* name(nullptr);
+        // int name{10};
+        // extern int name();
+        // auto name() { return 10; }
+        // static inline constexpr auto name() -> int;
+        // auto name = 10;
+        // decltype(auto) name() { return 10; }
+        virtual auto variable_or_function(Token const* name) -> void = 0;
     };
 }
 

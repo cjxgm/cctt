@@ -162,6 +162,60 @@ namespace cctt
             tk++;
         }
 
+        // Parse these patterns:
+        //
+        //   identifier .... name { .... } ....
+        //   identifier .... name [ .... ] ....
+        //   identifier .... name ( .... ) ....
+        //   identifier .... name = .... ; ....
+        //               ^    ^             ^
+        //               |    |             `-- tk will be here if succeeds.
+        //               |    `---------------- return value will be this if succeeds.
+        //               `--------------------- anything but `;` nor `}`
+        //
+        // If none of the above patterns match, returns nullptr and tk is not modified.
+        auto parse_variable_or_function(Token_Tree const& tt, Token const* & tk) -> Token const*
+        {
+            if (!tk->tags.has_all_of({Token_Tag::identifier})) return nullptr;
+
+            auto name = tk + 1;
+            while (true) {
+                if (token_is(name, "decltype", Token_Tag::identifier) && token_is(name+1, "(", Token_Tag::symbol)) {
+                    name = name[1].next();
+                    continue;
+                }
+
+                if (name->is_end()) return nullptr;
+                if (token_is(name, "}", Token_Tag::symbol)) return nullptr;
+                if (token_is(name, ";", Token_Tag::symbol)) return nullptr;
+
+                if (token_is(name, "{", Token_Tag::symbol)) break;
+                if (token_is(name, "[", Token_Tag::symbol)) break;
+                if (token_is(name, "(", Token_Tag::symbol)) break;
+                if (token_is(name, "=", Token_Tag::symbol)) break;
+
+                name = name->next();
+            }
+
+            name--;
+            if (!name->tags.has_all_of({Token_Tag::identifier})) return nullptr;
+
+            if (name[1].first[0] == '=') {
+                auto next_tk = name + 2;
+                while (true) {
+                    if (next_tk->is_end()) return nullptr;
+                    if (token_is(next_tk, ";", Token_Tag::symbol)) break;
+                    next_tk = next_tk->next();
+                }
+                next_tk = next_tk->next();
+                tk = next_tk;
+            } else {
+                tk = name[1].next();
+            }
+
+            return name;
+        }
+
         auto has_introspect_attribute(Token_Tree const& tt) -> bool
         {
             for (auto tk=tt.begin(), last=tt.end(); tk < last; tk++)
@@ -202,6 +256,11 @@ namespace cctt
                             parse_enum_body(tk, [&] (auto enumerant) { ih.enumerator(enumerant); });
                             ih.leave_enum();
                         }
+                        continue;
+                    }
+
+                    if (auto name = parse_variable_or_function(tt, tk)) {
+                        ih.variable_or_function(name);
                         continue;
                     }
 

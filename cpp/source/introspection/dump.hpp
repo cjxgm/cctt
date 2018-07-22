@@ -24,6 +24,8 @@ namespace cctt
 
         auto integral_constant(Token const* name) -> void override;
 
+        auto variable_or_function(Token const* name) -> void override;
+
     private:
         std::string full_namespace;
     };
