@@ -332,53 +332,75 @@ namespace cctt
 
         // Parse these patterns:
         //
-        //   identifier .... name { .... } ....
-        //   identifier .... name [ .... ] ....
-        //   identifier .... name ( .... ) ....
-        //   identifier .... name = .... ; ....
-        //               ^    ^             ^
-        //               |    |             `-- tk will be here if succeeds.
-        //               |    `---------------- return value will be this if succeeds.
-        //               `--------------------- anything but `;` nor `}`
+        //   identifier .... name { .... } .... [; | , | { .... }] ....
+        //   identifier .... name [ .... ] .... [; | , | { .... }] ....
+        //   identifier .... name ( .... ) .... [; | , | { .... }] ....
+        //   identifier .... name = ....   .... [; | , | { .... }] ....
+        //   identifier .... name [; | ,]                          ....
+        //               ^    ^                                      ^
+        //               |    |                                      `-- tk will be here if succeeds.
+        //               |    `----------------------------------------- return value will be this if succeeds.
+        //               `---------------------------------------------- anything but `;` nor `}`
         //
         // If none of the above patterns match, returns nullptr and tk is not modified.
         auto parse_variable_or_function(Token_Tree const& tt, Token const* & tk) -> Token const*
         {
             if (!tk->tags.has_all_of({Token_Tag::identifier})) return nullptr;
 
-            auto name = tk + 1;
+            auto p = tk;
+            auto name = (Token const*) nullptr;
             while (true) {
-                if (token_is(name, "decltype", Token_Tag::identifier) && token_is(name+1, "(", Token_Tag::symbol)) {
-                    name = name[1].next();
+                if ((token_is(p, "decltype", Token_Tag::identifier) || token_is(p, "alignas", Token_Tag::identifier)) && token_is(p+1, "(", Token_Tag::symbol)) {
+                    p = p[1].next();
                     continue;
                 }
 
-                if (name->is_end()) return nullptr;
-                if (token_is(name, "}", Token_Tag::symbol)) return nullptr;
-                if (token_is(name, ";", Token_Tag::symbol)) return nullptr;
+                if (token_is(p, "operator", Token_Tag::identifier) && p[1].tags.has_all_of({Token_Tag::symbol})) {
+                    name = p;
+                    p = p[1].next();
+                    continue;
+                }
 
-                if (token_is(name, "{", Token_Tag::symbol)) break;
-                if (token_is(name, "[", Token_Tag::symbol)) break;
-                if (token_is(name, "(", Token_Tag::symbol)) break;
-                if (token_is(name, "=", Token_Tag::symbol)) break;
+                if (p->is_end()) return nullptr;
+                if (token_is(p, "}", Token_Tag::symbol)) return nullptr;
 
-                name = name->next();
+                if (token_is(p, ";", Token_Tag::symbol)) break;
+                if (token_is(p, ",", Token_Tag::symbol)) break;
+                if (token_is(p, "{", Token_Tag::symbol)) break;
+                if (token_is(p, "[", Token_Tag::symbol)) break;
+                if (token_is(p, "(", Token_Tag::symbol)) break;
+                if (token_is(p, "=", Token_Tag::symbol)) break;
+
+                p = p->next();
             }
 
-            name--;
-            if (!name->tags.has_all_of({Token_Tag::identifier})) return nullptr;
+            if (name == nullptr) name = p - 1;
+            tk = p->next();
+            if (p->first[0] == ';' || p->first[0] == ',') return name;
 
-            if (name[1].first[0] == '=') {
-                auto next_tk = name + 2;
-                while (true) {
-                    if (next_tk->is_end()) return nullptr;
-                    if (token_is(next_tk, ";", Token_Tag::symbol)) break;
-                    next_tk = next_tk->next();
+            while (true) {
+                if (tk->is_end()) {
+                    auto name_loc = tt.source_location_of(name->first);
+                    throw_parsing_error(name_loc, name, "unexpected eof.");
                 }
-                next_tk = next_tk->next();
-                tk = next_tk;
-            } else {
-                tk = name[1].next();
+
+                if (token_is(tk, "}", Token_Tag::symbol)) {
+                    auto name_loc = tt.source_location_of(name->first);
+                    auto loc = tt.source_location_of(tk->first);
+                    throw_parsing_error2(name_loc, name, loc, tk, "unexpected symbol.");
+                }
+
+                if (token_is(tk, ";", Token_Tag::symbol) || token_is(tk, ",", Token_Tag::symbol)) {
+                    tk++;
+                    break;
+                }
+
+                if (token_is(tk, "{", Token_Tag::symbol)) {
+                    tk = tk->next();
+                    break;
+                }
+
+                tk = tk->next();
             }
 
             return name;
@@ -427,7 +449,8 @@ namespace cctt
             }
 
             if (auto name = parse_variable_or_function(tt, tk)) {
-                ih.variable_or_function(name);
+                if (!token_is(name, "operator", Token_Tag::identifier))
+                    ih.variable_or_function(name);
                 return true;
             }
 
