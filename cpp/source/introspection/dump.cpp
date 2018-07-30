@@ -33,6 +33,20 @@ namespace cctt
         std::cout.flush();
     }
 
+    auto Introspection_Dumper::add_attributes(Token const* attribs) -> void
+    {
+        std::cout << "  attributes: ";
+        std::cout.write(attribs->first, attribs->pair->last - attribs->first);
+        std::cout << "\n";
+        std::cout.flush();
+    }
+
+    auto Introspection_Dumper::clear_attributes() -> void
+    {
+        std::cout << "  attributes: clear\n";
+        std::cout.flush();
+    }
+
     auto Introspection_Dumper::enter_namespace(Token const* name) -> void
     {
         full_namespace += "::";

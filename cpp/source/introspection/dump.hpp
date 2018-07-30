@@ -15,6 +15,9 @@ namespace cctt
 
         auto abort() -> void override;
 
+        auto add_attributes(Token const* attribs) -> void override;
+        auto clear_attributes() -> void override;
+
         auto enter_namespace(Token const* name) -> void override;
         auto leave_namespace() -> void override;
 

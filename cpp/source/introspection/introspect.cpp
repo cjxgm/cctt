@@ -63,7 +63,7 @@ namespace cctt
             }
 
             tk = tk[1].next();
-            return content;
+            return content + 1;
         }
 
         // Parse this pattern:
@@ -144,21 +144,46 @@ namespace cctt
         }
 
         template <class Report>
-        auto parse_enum_body(Token const* & tk, Report&& report) -> void
+        auto parse_enumerant(Token_Tree const& tt, Token const* & tk, Report&& report) -> void
         {
-            while (!token_is(tk, "}", Token_Tag::symbol)) {
-                if (tk->tags.has_all_of({Token_Tag::identifier})) {
-                    report(tk);
-                    tk++;
+            if (tk->tags.has_all_of({Token_Tag::identifier})) {
+                report(tk);
+                tk++;
 
-                    while (!token_is(tk, ",", Token_Tag::symbol) && !token_is(tk, "}", Token_Tag::symbol))
-                        tk = tk->next();
+                while (true) {
+                    if (token_is(tk, ",", Token_Tag::symbol)) {
+                        tk++;
+                        break;
+                    }
 
-                    continue;
-                } else {
+                    if (token_is(tk, "}", Token_Tag::symbol))
+                        break;
+
                     tk = tk->next();
                 }
+            } else {
+                auto loc = tt.source_location_of(tk->first);
+                throw_parsing_error(loc, tk, "unrecognized enum item.");
             }
+        }
+
+        template <class Report>
+        auto parse_enum_body(Introspection_Handler& ih, Token_Tree const& tt, Token const* & tk, Report&& report) -> void
+        {
+            while (!token_is(tk, "}", Token_Tag::symbol)) {
+                if (auto attribs = parse_introspect_attribute(tt, tk)) {
+                    ih.add_attributes(attribs);
+                    while (auto attribs = parse_introspect_attribute(tt, tk))
+                        ih.add_attributes(attribs);
+
+                    parse_enumerant(tt, tk, report);
+
+                    ih.clear_attributes();
+                } else {
+                    parse_enumerant(tt, tk, report);
+                }
+            }
+
             tk++;
         }
 
@@ -234,10 +259,10 @@ namespace cctt
         {
             if (auto name = parse_enum_heading(tt, tk)) {
                 if (name == tk) {
-                    parse_enum_body(tk, [&] (auto enumerant) { ih.integral_constant(enumerant); });
+                    parse_enum_body(ih, tt, tk, [&] (auto enumerant) { ih.integral_constant(enumerant); });
                 } else {
                     ih.enter_enum(name);
-                    parse_enum_body(tk, [&] (auto enumerant) { ih.enumerator(enumerant); });
+                    parse_enum_body(ih, tt, tk, [&] (auto enumerant) { ih.enumerator(enumerant); });
                     ih.leave_enum();
                 }
                 return true;
@@ -246,6 +271,30 @@ namespace cctt
             if (auto name = parse_variable_or_function(tt, tk)) {
                 ih.variable_or_function(name);
                 return true;
+            }
+
+            return false;
+        }
+
+        // Parse block level items with introspect attributes as headers.
+        //
+        // On success, tk will be modified to the next unparsed token, and true will be returned;
+        // If tk is NOT an introspect attribute, tk will NOT be modified, and false will be returned;
+        // If tk IS an introspect attribute but failed to parse block items, an exception will be thrown.
+        auto parse_attributed_block_item(Introspection_Handler& ih, Token_Tree const& tt, Token const* & tk) -> bool
+        {
+            if (auto attribs = parse_introspect_attribute(tt, tk)) {
+                ih.add_attributes(attribs);
+                while (auto attribs = parse_introspect_attribute(tt, tk))
+                    ih.add_attributes(attribs);
+
+                if (parse_block_item(ih, tt, tk)) {
+                    ih.clear_attributes();
+                    return true;
+                } else {
+                    auto loc = tt.source_location_of(tk->first);
+                    throw_parsing_error(loc, tk, "not introspectable.");
+                }
             }
 
             return false;
@@ -274,13 +323,8 @@ namespace cctt
                     continue;
                 }
 
-                if (parse_introspect_attribute(tt, tk)) {
-                    if (parse_block_item(ih, tt, tk)) {
-                        continue;
-                    } else {
-                        auto loc = tt.source_location_of(tk->first);
-                        throw_parsing_error(loc, tk, "not introspectable.");
-                    }
+                if (parse_attributed_block_item(ih, tt, tk)) {
+                    continue;
                 }
 
                 tk = tk->next();

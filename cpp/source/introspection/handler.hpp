@@ -7,16 +7,22 @@ namespace cctt
     {
         virtual ~Introspection_Handler() = default;
 
-        // There is no [[cctt::introspect]] anywhere.
+        // There is no CCTT_INTROSPECT ( .... ) anywhere.
         virtual auto empty() -> void = 0;
 
-        // There is [[cctt::introspect]] somewhere.
+        // There is CCTT_INTROSPECT ( .... ) somewhere.
         virtual auto start() -> void = 0;
         virtual auto finish() -> void = 0;
 
         // An error occurred between start() and finish().
         // When abort() is called, finish() won't be called.
         virtual auto abort() -> void = 0;
+
+        // CCTT_INTROSPECT ( .... )
+        //                 ^
+        //                 `--------- attribs
+        virtual auto add_attributes(Token const* attribs) -> void = 0;
+        virtual auto clear_attributes() -> void = 0;
 
         // namespace @name { .... }
         virtual auto enter_namespace(Token const* name) -> void = 0;
