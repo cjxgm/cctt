@@ -100,6 +100,24 @@ namespace cctt
         std::cout.flush();
     }
 
+    auto Introspection_Dumper::structure(Token const* name) -> void
+    {
+        auto full_name = full_namespace;
+        full_name += "::";
+        full_name.append(name->first, name->last);
+
+        std::cout << "  struct " << full_name << "\n";
+        std::cout.flush();
+    }
+
+    auto Introspection_Dumper::parent(Token const* first, Token const* last) -> void
+    {
+        std::cout << "      : ";
+        std::cout.write(first->first, last->first - first->first);
+        std::cout << "\n";
+        std::cout.flush();
+    }
+
     auto Introspection_Dumper::variable_or_function(Token const* name) -> void
     {
         auto full_name = full_namespace;

@@ -40,6 +40,9 @@ namespace cctt
         // enum: int { @constant1, @constant2 = 10, @constant3 };
         virtual auto integral_constant(Token const* name) -> void = 0;
 
+        virtual auto structure(Token const* name) -> void = 0;
+        virtual auto parent(Token const* first, Token const* last) -> void = 0;
+
         // int name;
         // int name = 10;
         // int* name(nullptr);

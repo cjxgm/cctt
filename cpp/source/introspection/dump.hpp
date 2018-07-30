@@ -27,6 +27,9 @@ namespace cctt
 
         auto integral_constant(Token const* name) -> void override;
 
+        auto structure(Token const* name) -> void override;
+        auto parent(Token const* first, Token const* last) -> void override;
+
         auto variable_or_function(Token const* name) -> void override;
 
     private:

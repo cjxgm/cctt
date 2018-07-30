@@ -189,6 +189,149 @@ namespace cctt
 
         // Parse these patterns:
         //
+        //   [struct|class|union] @name [final] [: ....] { ....
+        //       ^     ^     ^      ^                ^       ^
+        //       |     |     |      |                |       `-- tk will be here if succeeds.
+        //       |     |     |      |                `---------- bases will be here if succeeds.
+        //       |     |     |      `--------------------------- return value will be this if succeeds.
+        //       |     |     `---------------------------------- publicity will be set to true
+        //       |     `---------------------------------------- publicity will be set to false
+        //       `---------------------------------------------- publicity will be set to true
+        //
+        //
+        //   [struct|class|union] [final] [: ....] { ....
+        //       ^     ^     ^                 ^       ^
+        //       |     |     |                 |       +-- tk will be here if succeeds.
+        //       |     |     |                 |       `-- return value will be this if succeeds.
+        //       |     |     |                 `---------- bases will be here if succeeds.
+        //       |     |     `---------------------------- publicity will be set to true
+        //       |     `---------------------------------- publicity will be set to false
+        //       `---------------------------------------- publicity will be set to true
+        //
+        // When encountered this pattern, exceptions are thrown:
+        //
+        //   [struct|class|union] [@name] [final] [: ....] ;
+        //
+        // If none of the above patterns match, returns nullptr and tk is not modified.
+        auto parse_struct_heading(Token_Tree const& tt, Token const* & tk, bool& publicity, Token const*& bases) -> Token const*
+        {
+            auto p = tk;
+            auto name = (Token const*) nullptr;
+            auto kind = p;
+
+            if (token_is(p, "struct", Token_Tag::identifier) || token_is(p, "class", Token_Tag::identifier) || token_is(p, "union", Token_Tag::identifier)) {
+                publicity = (p->first[0] != 'c');
+                p++;
+            } else {
+                return nullptr;
+            }
+
+            if (p->tags.has_all_of({Token_Tag::identifier})) {
+                name = p;
+                p++;
+            }
+
+            if (token_is(p, "final", Token_Tag::identifier))
+                p++;
+
+            if (token_is(p, ":", Token_Tag::symbol)) {
+                p++;
+                bases = p;
+
+                for (auto last=tt.end(); p < last; p=p->next()) {
+                    if (token_is(p, "{", Token_Tag::symbol))
+                        break;
+
+                    if (token_is(p, ";", Token_Tag::symbol)) {
+                        auto loc_kind = tt.source_location_of(kind->first);
+                        auto loc = tt.source_location_of(p->first);
+                        throw_parsing_error2(loc_kind, kind, loc, p, "item declaration cannot be introspected.");
+                    }
+                }
+            }
+
+            if (!token_is(p, "{", Token_Tag::symbol)) {
+                auto loc_kind = tt.source_location_of(kind->first);
+                auto loc = tt.source_location_of(p->first);
+                throw_parsing_error2(loc_kind, kind, loc, p, "failed to introspect item.");
+            }
+
+            p++;
+            tk = p;
+            return (name == nullptr ? p : name);
+        }
+
+        // Parse these patterns:
+        //
+        //   [virtual|public|private|protected]* .... [, [virtual|public|private|protected]* .... [, ....]] {
+        //                                         ^
+        //                                         `-- base if public or publicity == true
+        //
+        // If none of the above patterns match, exceptions will be thrown
+        auto parse_struct_bases(Introspection_Handler& ih, Token const* p, bool publicity) -> void
+        {
+            for (bool cont=true; cont; ) {
+                bool is_public = publicity;
+                while (true) {
+                    if (false
+                            || token_is(p, "virtual", Token_Tag::identifier)
+                            || token_is(p, "public", Token_Tag::identifier)
+                            || token_is(p, "private", Token_Tag::identifier)
+                            || token_is(p, "protected", Token_Tag::identifier)
+                            ) {
+                        if (p->first[0] == 'p') is_public = (p->first[1] == 'u');
+                        p++;
+                    } else {
+                        break;
+                    }
+                }
+
+                auto base_first = p;
+                while (true) {
+                    if (token_is(p, ",", Token_Tag::symbol))
+                        break;
+
+                    if (token_is(p, "{", Token_Tag::symbol)) {
+                        cont = false;
+                        break;
+                    }
+
+                    p = p->next();
+                }
+
+                if (is_public) ih.parent(base_first, p);
+                p++;
+            }
+        }
+
+        auto parse_struct_body(Introspection_Handler& ih, Token_Tree const& tt, Token const* & tk, bool publicity) -> void;
+
+        // Skip items until these patterns:
+        //
+        //   public : ....
+        //              ^
+        //              `-- tk will be here if succeeds.
+        //
+        //   }
+        //   ^
+        //   `-- tk will be here if succeeds.
+        //
+        // It is UNDEFINED BEHAVIOR if none of the above patterns match.
+        auto skip_after_public(Token const* & tk) -> void
+        {
+            for (;; tk=tk->next()) {
+                if (token_is(tk, "}", Token_Tag::symbol))
+                    return;
+
+                if (token_is(tk, "public", Token_Tag::identifier) && token_is(tk+1, ":", Token_Tag::symbol)) {
+                    tk += 2;
+                    return;
+                }
+            }
+        }
+
+        // Parse these patterns:
+        //
         //   identifier .... name { .... } ....
         //   identifier .... name [ .... ] ....
         //   identifier .... name ( .... ) ....
@@ -268,6 +411,21 @@ namespace cctt
                 return true;
             }
 
+            bool publicity;
+            auto bases = (Token const*) nullptr;
+            if (auto name = parse_struct_heading(tt, tk, publicity, bases)) {
+                if (name == tk) {
+                    parse_struct_body(ih, tt, tk, publicity);
+                } else {
+                    ih.structure(name);
+                    if (bases != nullptr) parse_struct_bases(ih, bases, publicity);
+                    ih.enter_namespace(name);
+                    parse_struct_body(ih, tt, tk, publicity);
+                    ih.leave_namespace();
+                }
+                return true;
+            }
+
             if (auto name = parse_variable_or_function(tt, tk)) {
                 ih.variable_or_function(name);
                 return true;
@@ -298,6 +456,36 @@ namespace cctt
             }
 
             return false;
+        }
+
+        auto parse_struct_body(Introspection_Handler& ih, Token_Tree const& tt, Token const* & tk, bool publicity) -> void
+        {
+            if (!publicity) skip_after_public(tk);
+
+            while (true) {
+                if ((token_is(tk, "private", Token_Tag::identifier) || token_is(tk, "protected", Token_Tag::identifier)) && token_is(tk+1, ":", Token_Tag::symbol)) {
+                    tk += 2;
+                    skip_after_public(tk);
+                }
+
+                if (token_is(tk, "using", Token_Tag::identifier)) {
+                    while (!token_is(tk, ";", Token_Tag::symbol) && !token_is(tk, "}", Token_Tag::symbol))
+                        tk = tk->next();
+                }
+
+                if (token_is(tk, "}", Token_Tag::symbol))
+                    break;
+
+                if (parse_attributed_block_item(ih, tt, tk))
+                    continue;
+
+                if (parse_block_item(ih, tt, tk))
+                    continue;
+
+                tk = tk->next();
+            }
+
+            tk++;
         }
     }
 
