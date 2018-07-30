@@ -223,6 +223,33 @@ namespace cctt
                     return true;
             return false;
         }
+
+        // Parse block level items, i.e. (member-)enums, (member-)integral constants,
+        // (member-)variables, (member-)functions, and (member-)structs.
+        // They may all optionally have a introspect attribute header each.
+        //
+        // On success, tk will be modified to the next unparsed token, and true will be returned;
+        // On failure, tk will NOT be modified, and false will be returned;
+        auto parse_block_item(Introspection_Handler& ih, Token_Tree const& tt, Token const* & tk) -> bool
+        {
+            if (auto name = parse_enum_heading(tt, tk)) {
+                if (name == tk) {
+                    parse_enum_body(tk, [&] (auto enumerant) { ih.integral_constant(enumerant); });
+                } else {
+                    ih.enter_enum(name);
+                    parse_enum_body(tk, [&] (auto enumerant) { ih.enumerator(enumerant); });
+                    ih.leave_enum();
+                }
+                return true;
+            }
+
+            if (auto name = parse_variable_or_function(tt, tk)) {
+                ih.variable_or_function(name);
+                return true;
+            }
+
+            return false;
+        }
     }
 
     auto introspect(Token_Tree const& tt, Introspection_Handler& ih) -> void
@@ -248,24 +275,12 @@ namespace cctt
                 }
 
                 if (parse_introspect_attribute(tt, tk)) {
-                    if (auto name = parse_enum_heading(tt, tk)) {
-                        if (name == tk) {
-                            parse_enum_body(tk, [&] (auto enumerant) { ih.integral_constant(enumerant); });
-                        } else {
-                            ih.enter_enum(name);
-                            parse_enum_body(tk, [&] (auto enumerant) { ih.enumerator(enumerant); });
-                            ih.leave_enum();
-                        }
+                    if (parse_block_item(ih, tt, tk)) {
                         continue;
+                    } else {
+                        auto loc = tt.source_location_of(tk->first);
+                        throw_parsing_error(loc, tk, "not introspectable.");
                     }
-
-                    if (auto name = parse_variable_or_function(tt, tk)) {
-                        ih.variable_or_function(name);
-                        continue;
-                    }
-
-                    auto loc = tt.source_location_of(tk->first);
-                    throw_parsing_error(loc, tk, "not introspectable.");
                 }
 
                 tk = tk->next();
