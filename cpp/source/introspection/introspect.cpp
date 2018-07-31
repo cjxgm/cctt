@@ -46,19 +46,12 @@ namespace cctt
                     auto bad = p;
                     auto bad_loc = tt.source_location_of(bad->first);
                     auto content_loc = tt.source_location_of(content->first);
-                    throw_parsing_error2(bad_loc, bad, content_loc, content, "introspection must be directly inside a named namespace.");
+                    throw_parsing_error2(bad_loc, bad, content_loc, content, "introspection must be directly inside namespace/struct/class/union.");
                 }
 
                 if (p-1 >= tt.begin() && token_is(p-1, "namespace", Token_Tag::identifier)) {
                     auto loc = tt.source_location_of(p[-1].first);
                     throw_parsing_error(loc, p-1, "anonymous namespaces cannot be introspected.");
-                }
-
-                if (p-2 >= tt.begin() && !token_is(p-2, "namespace", Token_Tag::identifier)) {
-                    auto bad = p - 2;
-                    auto bad_loc = tt.source_location_of(bad->first);
-                    auto content_loc = tt.source_location_of(content->first);
-                    throw_parsing_error2(bad_loc, bad, content_loc, content, "introspection must be directly inside a named namespace.");
                 }
             }
 
