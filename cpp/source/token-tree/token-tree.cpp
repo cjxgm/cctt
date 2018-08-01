@@ -200,6 +200,9 @@ namespace cctt
             #define CASE_DIGIT \
                 case '0': case '1': case '2': case '3': case '4': \
                 case '5': case '6': case '7': case '8': case '9'
+            #define CASE_DIGIT_WITH_SEPARATOR \
+                case '\'': \
+                CASE_DIGIT
             #define CASE_WHITESPACE \
                 case '\x20': case '\r': case '\n': \
                 case '\t': case '\f': case '\v'
@@ -296,7 +299,7 @@ namespace cctt
 
                 while (true) {
                     switch (*last) {
-                        CASE_DIGIT: last++; break;
+                        CASE_DIGIT_WITH_SEPARATOR: last++; break;
                         default: return true;
                     }
                 }
