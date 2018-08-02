@@ -484,7 +484,7 @@ namespace cctt
                     skip_after_public(tk);
                 }
 
-                if (token_is(tk, "using", Token_Tag::identifier)) {
+                if (token_is(tk, "using", Token_Tag::identifier) || token_is(tk, "typedef", Token_Tag::identifier)) {
                     while (!token_is(tk, ";", Token_Tag::symbol) && !token_is(tk, "}", Token_Tag::symbol))
                         tk = tk->next();
                 }
