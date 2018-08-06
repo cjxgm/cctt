@@ -393,6 +393,33 @@ namespace cctt
                     break;
                 }
 
+                // constructor's member initialization list
+                if (token_is(tk, ":", Token_Tag::symbol)) {
+                    tk++;
+
+                    while (true) {
+                        if (tk->is_end()) {
+                            auto name_loc = tt.source_location_of(name->first);
+                            throw_parsing_error(name_loc, name, "unexpected eof.");
+                        }
+
+                        if (token_is(tk, "{", Token_Tag::symbol) || token_is(tk, "(", Token_Tag::symbol) || token_is(tk, "...", Token_Tag::symbol)) {
+                            tk = tk->next();
+
+                            if (token_is(tk, ",", Token_Tag::symbol)) {
+                                tk++;
+                                continue;
+                            }
+
+                            break;
+                        }
+
+                        tk = tk->next();
+                    }
+
+                    continue;
+                }
+
                 tk = tk->next();
             }
 
