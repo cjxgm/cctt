@@ -15,10 +15,10 @@ namespace cctt
     {
         auto msg = fmt::format(
             STYLE_LOCATION "{}:{}" STYLE_NORMAL " "
-            STYLE_SOURCE "{}" STYLE_NORMAL ": {}"
+            "\"" STYLE_SOURCE "{}" STYLE_NORMAL "\": {}"
             , loc.line
             , loc.column
-            , util::quote({first, last})
+            , util::quote_without_delimiters({first, last})
             , reason
         );
         throw Parsing_Error{msg};
@@ -32,8 +32,8 @@ namespace cctt
     ) -> void
     {
         auto reason = fmt::format(
-            "missing paired " STYLE_SOURCE "{}" STYLE_NORMAL "."
-            , util::quote(missing_pair)
+            "missing paired \"" STYLE_SOURCE "{}" STYLE_NORMAL "\"."
+            , util::quote_without_delimiters(missing_pair)
         );
         throw_scanning_error(loc, first, last, reason.data());
     }
@@ -57,16 +57,16 @@ namespace cctt
     {
         auto msg = fmt::format(
             STYLE_LOCATION "{}:{}" STYLE_NORMAL " "
-            STYLE_SOURCE "{}" STYLE_NORMAL " and "
+            "\"" STYLE_SOURCE "{}" STYLE_NORMAL "\" and "
             STYLE_LOCATION "{}:{}" STYLE_NORMAL " "
-            STYLE_SOURCE "{}" STYLE_NORMAL ": "
+            "\"" STYLE_SOURCE "{}" STYLE_NORMAL "\": "
             "{}"
             , loc0.line
             , loc0.column
-            , util::quote({tk0->first, tk0->last})
+            , util::quote_without_delimiters({tk0->first, tk0->last})
             , loc1.line
             , loc1.column
-            , util::quote({tk1->first, tk1->last})
+            , util::quote_without_delimiters({tk1->first, tk1->last})
             , reason
         );
         throw Parsing_Error{msg};
@@ -79,8 +79,8 @@ namespace cctt
     ) -> void
     {
         auto reason = fmt::format(
-            "missing paired " STYLE_SOURCE "{}" STYLE_NORMAL "."
-            , util::quote(missing_pair)
+            "missing paired \"" STYLE_SOURCE "{}" STYLE_NORMAL "\"."
+            , util::quote_without_delimiters(missing_pair)
         );
         throw_parsing_error(loc, pair, reason.data());
     }

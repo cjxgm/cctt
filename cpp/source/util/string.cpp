@@ -32,11 +32,16 @@ namespace cctt
         auto quote(std::string const& x) -> std::string
         {
             std::ostringstream oss;
-            auto delimiter = (x.find('"') == x.npos ? '"' : '\'');
-            oss << std::quoted(x, delimiter);
+            oss << std::quoted(x);
             auto result = oss.str();
 
             return format_to_oneline(std::move(result));
+        }
+
+        auto quote_without_delimiters(std::string const& x) -> std::string
+        {
+            auto quoted = quote(x);
+            return quoted.substr(1, quoted.size() - 2);
         }
 
         auto format_to_oneline(std::string x) -> std::string
