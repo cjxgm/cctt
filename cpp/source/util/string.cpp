@@ -51,10 +51,16 @@ namespace cctt
                 [] (char ch) -> nonstd::optional<std::string> {
                     if (is_printable_in_ascii(ch)) {
                         return {};
-                    } else if (ch == '\x20') {
-                        return std::string{"␣"};
                     } else {
-                        return fmt::format("\\x{:02x}", ch);
+                        switch (ch) {
+                            case '\x20': return std::string{"␣"};
+                            case '\t': return std::string{"\\t"};
+                            case '\n': return std::string{"\\n"};
+                            case '\r': return std::string{"\\r"};
+                            case '\f': return std::string{"\\f"};
+                            case '\v': return std::string{"\\v"};
+                            default: return fmt::format("\\x{:02x}", ch);
+                        }
                     }
                 }
             );
