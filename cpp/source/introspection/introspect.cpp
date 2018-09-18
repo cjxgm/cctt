@@ -137,7 +137,7 @@ namespace cctt
         }
 
         template <class Report>
-        auto parse_enumerant(Token_Tree const& tt, Token const* & tk, Report&& report) -> void
+        auto parse_enumerator(Token_Tree const& tt, Token const* & tk, Report&& report) -> void
         {
             if (tk->tags.has_all_of({Token_Tag::identifier})) {
                 report(tk);
@@ -169,11 +169,11 @@ namespace cctt
                     while (auto attribs = parse_introspect_attribute(tt, tk))
                         ih.add_attributes(attribs);
 
-                    parse_enumerant(tt, tk, report);
+                    parse_enumerator(tt, tk, report);
 
                     ih.clear_attributes();
                 } else {
-                    parse_enumerant(tt, tk, report);
+                    parse_enumerator(tt, tk, report);
                 }
             }
 
@@ -444,10 +444,10 @@ namespace cctt
         {
             if (auto name = parse_enum_heading(tt, tk)) {
                 if (name == tk) {
-                    parse_enum_body(ih, tt, tk, [&] (auto enumerant) { ih.integral_constant(enumerant); });
+                    parse_enum_body(ih, tt, tk, [&] (auto enum_name) { ih.integral_constant(enum_name); });
                 } else {
                     ih.enter_enum(name);
-                    parse_enum_body(ih, tt, tk, [&] (auto enumerant) { ih.enumerator(enumerant); });
+                    parse_enum_body(ih, tt, tk, [&] (auto enum_name) { ih.enumerator(enum_name); });
                     ih.leave_enum();
                 }
                 return true;
