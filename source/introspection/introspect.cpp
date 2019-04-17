@@ -201,9 +201,14 @@ namespace cctt
         //       |     `---------------------------------- publicity will be set to false
         //       `---------------------------------------- publicity will be set to true
         //
-        // When encountered this pattern, exceptions are thrown:
-        //
-        //   [struct|class|union] [@name] [final] [: ....] ;
+        //   [struct|class|union] [@name] [final] [: ....] ; ...
+        //       ^     ^     ^                         ^   ^  ^
+        //       |     |     |                         |   |  `-- tk will be here if succeeds.
+        //       |     |     |                         |   `----- return value will be this if succeeds.
+        //       |     |     |                         `--------- bases will be here if succeeds.
+        //       |     |     `----------------------------------- publicity will be set to true
+        //       |     `----------------------------------------- publicity will be set to false
+        //       `----------------------------------------------- publicity will be set to true
         //
         // If none of the above patterns match, returns nullptr and tk is not modified.
         auto parse_struct_heading(Token_Tree const& tt, Token const* & tk, bool& publicity, Token const*& bases) -> Token const*
@@ -235,12 +240,15 @@ namespace cctt
                     if (token_is(p, "{", Token_Tag::symbol))
                         break;
 
-                    if (token_is(p, ";", Token_Tag::symbol)) {
-                        auto loc_kind = tt.source_location_of(kind->first);
-                        auto loc = tt.source_location_of(p->first);
-                        throw_parsing_error2(loc_kind, kind, loc, p, "item declaration cannot be introspected.");
-                    }
+                    if (token_is(p, ";", Token_Tag::symbol))
+                        break;
                 }
+            }
+
+            if (token_is(p, ";", Token_Tag::symbol)) {
+                name = p++;
+                tk = p;
+                return name;
             }
 
             if (!token_is(p, "{", Token_Tag::symbol)) {
@@ -458,6 +466,8 @@ namespace cctt
             if (auto name = parse_struct_heading(tt, tk, publicity, bases)) {
                 if (name == tk) {
                     parse_struct_body(ih, tt, tk, publicity);
+                } else if (name+1 == tk) {
+                    // Empty intentionally: ignore forward declarations
                 } else {
                     ih.structure(name);
                     if (bases != nullptr) parse_struct_bases(ih, bases, publicity);
