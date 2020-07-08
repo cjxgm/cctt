@@ -182,33 +182,36 @@ namespace cctt
 
         // Parse these patterns:
         //
-        //   [struct|class|union] @name [final] [: ....] { ....
-        //       ^     ^     ^      ^                ^       ^
-        //       |     |     |      |                |       `-- tk will be here if succeeds.
-        //       |     |     |      |                `---------- bases will be here if succeeds.
-        //       |     |     |      `--------------------------- return value will be this if succeeds.
-        //       |     |     `---------------------------------- publicity will be set to true
-        //       |     `---------------------------------------- publicity will be set to false
-        //       `---------------------------------------------- publicity will be set to true
+        //   [struct|class|union] ... @name [final] [: ....] { ....
+        //       ^     ^     ^     ^    ^                ^       ^
+        //       |     |     |     |    |                |       `-- tk will be here if succeeds.
+        //       |     |     |     |    |                `---------- bases will be here if succeeds.
+        //       |     |     |     |    `--------------------------- return value will be this if succeeds.
+        //       |     |     |     `-------------------------------- "alignas" and token trees are ignored.
+        //       |     |     `-------------------------------------- publicity will be set to true
+        //       |     `-------------------------------------------- publicity will be set to false
+        //       `-------------------------------------------------- publicity will be set to true
         //
         //
-        //   [struct|class|union] [final] [: ....] { ....
-        //       ^     ^     ^                 ^       ^
-        //       |     |     |                 |       +-- tk will be here if succeeds.
-        //       |     |     |                 |       `-- return value will be this if succeeds.
-        //       |     |     |                 `---------- bases will be here if succeeds.
-        //       |     |     `---------------------------- publicity will be set to true
-        //       |     `---------------------------------- publicity will be set to false
-        //       `---------------------------------------- publicity will be set to true
+        //   [struct|class|union] ... [final] [: ....] { ....
+        //       ^     ^     ^     ^               ^       ^
+        //       |     |     |     |               |       +-- tk will be here if succeeds.
+        //       |     |     |     |               |       `-- return value will be this if succeeds.
+        //       |     |     |     |               `---------- bases will be here if succeeds.
+        //       |     |     |     `-------------------------- "alignas" and token trees are ignored.
+        //       |     |     `-------------------------------- publicity will be set to true
+        //       |     `-------------------------------------- publicity will be set to false
+        //       `-------------------------------------------- publicity will be set to true
         //
-        //   [struct|class|union] [@name] [final] [: ....] ; ...
-        //       ^     ^     ^                         ^   ^  ^
-        //       |     |     |                         |   |  `-- tk will be here if succeeds.
-        //       |     |     |                         |   `----- return value will be this if succeeds.
-        //       |     |     |                         `--------- bases will be here if succeeds.
-        //       |     |     `----------------------------------- publicity will be set to true
-        //       |     `----------------------------------------- publicity will be set to false
-        //       `----------------------------------------------- publicity will be set to true
+        //   [struct|class|union] ... [@name] [final] [: ....] ; ...
+        //       ^     ^     ^     ^                       ^   ^  ^
+        //       |     |     |     |                       |   |  `-- tk will be here if succeeds.
+        //       |     |     |     |                       |   `----- return value will be this if succeeds.
+        //       |     |     |     |                       `--------- bases will be here if succeeds.
+        //       |     |     |     `--------------------------------- "alignas" and token trees are ignored.
+        //       |     |     `--------------------------------------- publicity will be set to true
+        //       |     `--------------------------------------------- publicity will be set to false
+        //       `--------------------------------------------------- publicity will be set to true
         //
         // If none of the above patterns match, returns nullptr and tk is not modified.
         auto parse_struct_heading(Token_Tree const& tt, Token const* & tk, bool& publicity, Token const*& bases) -> Token const*
@@ -220,6 +223,8 @@ namespace cctt
             if (token_is(p, "struct", Token_Tag::identifier) || token_is(p, "class", Token_Tag::identifier) || token_is(p, "union", Token_Tag::identifier)) {
                 publicity = (p->first[0] != 'c');
                 p++;
+                while (p->tags.has_none_of({Token_Tag::end}) && (p->pair != nullptr || token_is(p, "alignas", Token_Tag::identifier)))
+                    p = p->next();
             } else {
                 return nullptr;
             }
