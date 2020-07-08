@@ -372,7 +372,7 @@ namespace cctt
                     continue;
                 }
 
-                if (token_is(p, "operator", Token_Tag::identifier) && p[1].tags.has_all_of({Token_Tag::symbol})) {
+                if (token_is(p, "operator", Token_Tag::identifier) && p[1].tags.has_none_of({Token_Tag::end})) {
                     name = p;
                     p = p[1].next();
                     continue;
