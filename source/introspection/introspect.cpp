@@ -20,10 +20,11 @@ namespace cctt
 
         // Parse this pattern:
         //
-        //   CCTT_INTROSPECT ( .... ) ....
-        //           ^                 ^
-        //           |                 `-- tk will be here if succeeds.
-        //           `-------------------- return value will be this if succeeds.
+        //   CCTT_INTROSPECT ( .... ) [;] ....
+        //           ^                 ^   ^
+        //           |                 |   `-- tk will be here if succeeds.
+        //           |                 `------ arbitrary number of semicolons ";".
+        //           `------------------------ return value will be this if succeeds.
         //
         // If failed, returns nullptr and tk is not modified.
         // Throws if the pattern appears at illegal places.
@@ -56,6 +57,10 @@ namespace cctt
             }
 
             tk = tk[1].next();
+
+            while (token_is(tk, ";", Token_Tag::symbol))
+                tk++;
+
             return content + 1;
         }
 
