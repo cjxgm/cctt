@@ -47,10 +47,10 @@ namespace cctt
         std::cout.flush();
     }
 
-    auto Introspection_Dumper::enter_namespace(Token const* name) -> void
+    auto Introspection_Dumper::enter_namespace(Token const* name_first, Token const* name_last) -> void
     {
         full_namespace += "::";
-        full_namespace.append(name->first, name->last);
+        full_namespace.append(name_first->first, name_last[-1].last);
 
         std::cout << "  namespace " << full_namespace << " {\n";
         std::cout.flush();

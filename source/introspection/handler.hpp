@@ -24,8 +24,11 @@ namespace cctt
         virtual auto add_attributes(Token const* attribs) -> void = 0;
         virtual auto clear_attributes() -> void = 0;
 
-        // namespace @name { .... }
-        virtual auto enter_namespace(Token const* name) -> void = 0;
+        // namespace @name [:: @name] { .... }
+        //             ^              ^
+        //             |              `--------- name_last
+        //             `------------------------ name_first
+        virtual auto enter_namespace(Token const* name_first, Token const* name_last) -> void = 0;
         virtual auto leave_namespace() -> void = 0;
 
         // enum @name { @enumerator1, @enumerator2 = 10, @enumerator3 };

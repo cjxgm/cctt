@@ -18,7 +18,7 @@ namespace cctt
         auto add_attributes(Token const* attribs) -> void override;
         auto clear_attributes() -> void override;
 
-        auto enter_namespace(Token const* name) -> void override;
+        auto enter_namespace(Token const* name_first, Token const* name_last) -> void override;
         auto leave_namespace() -> void override;
 
         auto enter_enum(Token const* name) -> void override;

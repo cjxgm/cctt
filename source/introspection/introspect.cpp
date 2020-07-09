@@ -61,10 +61,11 @@ namespace cctt
 
         // Parse this pattern:
         //
-        //   namespace @name { ....
-        //               ^       ^
-        //               |       `-- tk will be here if succeeds.
-        //               `---------- return value will be this if succeeds.
+        //   namespace @name [:: @name] { ....
+        //               ^   ~~~~~^~~~~     ^
+        //               |        |         `-- tk will be here if succeeds.
+        //               |        `------------ arbitrary number of ":: @name". C++17 style nested namespace in a single declaration.
+        //               `--------------------- return value will be this if succeeds.
         //
         // If failed, returns nullptr and tk is not modified.
         auto parse_namespace_heading(Token const* & tk) -> Token const*
@@ -72,10 +73,15 @@ namespace cctt
 
             if (!token_is(tk, "namespace", Token_Tag::identifier)) return nullptr;
             if (tk[1].tags.has_none_of({Token_Tag::identifier})) return nullptr;
-            if (!token_is(tk+2, "{", Token_Tag::symbol)) return nullptr;
+
+            auto tk2 = tk + 2;
+            while (token_is(tk2, "::", Token_Tag::symbol) && tk2[1].tags.has_all_of({Token_Tag::identifier}))
+                tk2 += 2;
+
+            if (!token_is(tk2, "{", Token_Tag::symbol)) return nullptr;
 
             auto name = tk + 1;
-            tk += 3;
+            tk = tk2 + 1;
             return name;
         }
 
@@ -476,7 +482,7 @@ namespace cctt
                 } else {
                     ih.structure(name);
                     if (bases != nullptr) parse_struct_bases(ih, bases, publicity);
-                    ih.enter_namespace(name);
+                    ih.enter_namespace(name, name+1);
                     parse_struct_body(ih, tt, tk, publicity);
                     ih.leave_namespace();
                 }
@@ -565,7 +571,7 @@ namespace cctt
                 }
 
                 if (auto name = parse_namespace_heading(tk)) {
-                    ih.enter_namespace(name);
+                    ih.enter_namespace(name, tk-1);
                     continue;
                 }
 
